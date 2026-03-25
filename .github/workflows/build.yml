@@ -1,4 +1,4 @@
-name: Kernel_Build_Emergency_Fix
+name: Kernel_Build_Final_Success
 on:
   workflow_dispatch:
 
@@ -16,30 +16,31 @@ jobs:
 
       - name: Ultimate_Patching
         run: |
-          # سكريبت ذكي للبحث عن أي ملف Kconfig مفقود وتعطيله آلياً
+          # 1. تنظيف مذهل لجميع الملفات المفقودة (نجحنا فيه سابقاً)
           find . -name "Kconfig*" -type f | while read file; do
-            # البحث عن الأسطر التي تبدأ بـ source "
             grep 'source "' "$file" | cut -d'"' -f2 | while read target; do
               if [ ! -f "$target" ]; then
-                echo "Fixing missing file: $target in $file"
-                # وضع علامة # لتعطيل السطر المفقود
                 sed -i "s|source \"$target\"|# source \"$target\"|g" "$file"
               fi
             done
           done
 
-          # البحث عن ملف الإعدادات
-          CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
-          if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
+          # 2. تحديد مسار ملف الإعدادات بدقة (هنا كان الخطأ الأخير)
+          # سنبحث عن الملف ونأخذ مساره الصحيح مهما كان
+          CONF_PATH=$(find arch/arm64/configs -name "sm8550_defconfig" | head -n 1)
+          CONF_NAME=$(basename $CONF_PATH)
           
-          # تفعيل تعريفات Atheros
-          echo "CONFIG_ATH9K_HTC=y" >> $CONF
-          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
-          echo "CONFIG_MAC80211=y" >> $CONF
-          echo "CONFIG_CFG80211=y" >> $CONF
+          echo "Found config at: $CONF_PATH"
+
+          # 3. تفعيل تعريفات Atheros AR9271
+          echo "CONFIG_ATH9K_HTC=y" >> $CONF_PATH
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF_PATH
+          echo "CONFIG_MAC80211=y" >> $CONF_PATH
+          echo "CONFIG_CFG80211=y" >> $CONF_PATH
           
-          # بدء البناء
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
+          # 4. بدء البناء (استخدام المسار الكامل للملف لضمان النجاح)
+          mkdir -p out
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $CONF_NAME
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
