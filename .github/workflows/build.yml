@@ -4,25 +4,18 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Kernel Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Build Essentials
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm
-
-      - name: Set Up Clang
-        run: |
-          echo "Setting up Google Clang Toolchain..."
-          # سنستخدم Clang المدمج في أوبنتو للتبسيط في التجربة الأولى
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
 
       - name: Configure Kernel (Add Atheros Support)
         run: |
-          # هنا نقوم بتعديل ملف الإعدادات لإضافة دعم AR9271 تلقائياً
-          # تأكد من اسم ملف الـ defconfig الصحيح لجهازك (غالباً sm8550_defconfig)
           CONF_PATH="arch/arm64/configs/vendor/sm8550_defconfig"
           echo "CONFIG_ATH9K_HTC=y" >> $CONF_PATH
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF_PATH
@@ -31,12 +24,11 @@ jobs:
 
       - name: Build Kernel
         run: |
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 O=out vendor/sm8550_defconfig
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 O=out -j$(nproc)
+          make ARCH=arm64 O=out vendor/sm8550_defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 O=out -j$(nproc)
 
       - name: Upload Kernel Image
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Kernel_Image
+          name: Kernel_Image_PJA110
           path: out/arch/arm64/boot/Image
-          
