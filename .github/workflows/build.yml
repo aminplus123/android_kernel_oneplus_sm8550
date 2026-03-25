@@ -1,9 +1,9 @@
-name: Kernel_Patch_Final_Success
+name: Ultimate_Atheros_Success
 on:
   workflow_dispatch:
 
 jobs:
-  patch:
+  build_and_patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
@@ -14,29 +14,33 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install_KernelPatch_Tool
+      - name: Compile_Tool_Locally
         run: |
-          # تثبيت الأداة رسمياً من المستودع المباشر
-          # هذه الخطوة تضمن بناء النسخة الصحيحة للسيرفر تلقائياً
-          go install github.com/bmax121/KernelPatch/cmd/kpimg@latest
+          # تحميل الكود المصدري للمشروع
+          git clone https://github.com/bmax121/KernelPatch.git
+          cd KernelPatch
           
-          # نقل الأداة للمجلد الرئيسي لتسهيل استخدامها
-          cp $(go env GOPATH)/bin/kpimg .
-          chmod +x kpimg
+          # بناء الأداة من المجلد الرئيسي للمشروع (أكثر أماناً)
+          go build ./cmd/kpimg
           
-          # التأكد من وجود الأداة ومعماريتها
-          ls -lh kpimg
-          file kpimg
+          # نقل الأداة الناتجة إلى المجلد الرئيسي
+          mv kpimg ../kpimg_final
+          cd ..
+          chmod +x kpimg_final
+          
+          # فحص الحجم والمعمارية للتأكد
+          ls -lh kpimg_final
+          file kpimg_final
 
-      - name: Patch_Kernel
+      - name: Patch_Kernel_Image
         run: |
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found!"
+            echo "Error: init_boot.img not found in repository!"
             exit 1
           fi
           
-          # تنفيذ الحقن لتعريف Atheros AR9271
-          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تنفيذ عملية الحقن لتعريف Atheros
+          ./kpimg_final -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
         uses: actions/upload-artifact@v4
