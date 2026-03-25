@@ -9,24 +9,29 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Download_KernelPatch_Tool
+      - name: Download_KernelPatch_Safe
         run: |
-          # تحميل الأداة مباشرة من المستودع الرسمي وتسميتها
-          curl -L https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64 -o kpimg
-          # منح صلاحيات التنفيذ للملف المحمل
+          # تحميل إصدار مستقر برابط مباشر خام (Raw) لضمان عدم تحميل صفحة HTML
+          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
+          
+          # التأكد من أن الملف ليس فارغاً (يجب أن يكون حجمه أكثر من 1 ميجا)
+          filesize=$(stat -c%s "kpimg")
+          if [ $filesize -lt 1000000 ]; then
+            echo "Error: Download failed (file too small). Trying alternative..."
+            curl -L "https://github.com/bmax121/KernelPatch/releases/latest/download/kpimg-v0.20.1-linux-x86_64" -o kpimg
+          fi
+          
           chmod +x kpimg
-          # عرض تفاصيل الملف للتأكد من حجمه وسلامته في السجل
-          ls -l kpimg
+          ls -lh kpimg
           
       - name: Patch_Atheros_Drivers
         run: |
-          # التحقق من وجود ملف الـ init_boot المرفوع مسبقاً
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found in repository root!"
+            echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # تنفيذ عملية الحقن باستخدام المسار المباشر للأداة
+          # تشغيل الحقن بمسار مباشر ومؤكد
           ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
