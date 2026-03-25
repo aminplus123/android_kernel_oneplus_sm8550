@@ -1,4 +1,4 @@
-name: Kernel_Build_Final_Shield
+name: Kernel_Build_Final_Recovery
 on:
   workflow_dispatch:
 
@@ -16,28 +16,27 @@ jobs:
 
       - name: Patch_and_Build
         run: |
-          # 1. تنظيف شامل لملف Kconfig من كافة المسارات المفقودة لشركة Oplus
-          # هذا الأمر سيحذف أي سطر يحتوي على oplus_cpu ويسبب تعطل البناء
-          if [ -f init/Kconfig ]; then
-            sed -i '/oplus_cpu/d' init/Kconfig
-          fi
+          # 1. تنظيف شامل وعميق لكل ملفات Kconfig من أي إشارات لشركة Oplus المفقودة
+          # هذا الأمر سيبحث في كل المجلدات ويحذف أي سطر يطلب ملفات oplus
+          find . -name "Kconfig*" -type f -exec sed -i '/oplus/d' {} +
+          find . -name "Kconfig*" -type f -exec sed -i '/OPLUS/d' {} +
           
-          # 2. البحث عن ملف الإعدادات
+          # 2. البحث التلقائي عن ملف الإعدادات الصحيح
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          # 3. تفعيل تعريفات الوايفاي الخارجي
+          # 3. تفعيل تعريفات Atheros AR9271 للوايفاي الخارجي
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # 4. بدء البناء
+          # 4. بدء عملية البناء باستخدام مترجم النظام
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Atheros
+          name: Kernel_Image_PJA110
           path: out/arch/arm64/boot/Image
