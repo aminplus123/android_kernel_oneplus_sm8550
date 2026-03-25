@@ -1,4 +1,4 @@
-name: Kernel_Build_Final_Shield
+name: Kernel_Build_Emergency_Fix
 on:
   workflow_dispatch:
 
@@ -14,32 +14,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
 
-      - name: Patch_and_Build
+      - name: Ultimate_Patching
         run: |
-          # 1. تعطيل ذكي وشامل لكافة ملفات الإعدادات المفقودة (Oplus و KconfigUpdate)
-          # نستخدم علامة # لإيقاف استدعاء الملفات غير الموجودة دون تخريب هيكل الملف
-          find . -name "Kconfig*" -type f -exec sed -i 's/^source ".*oplus.*/# & /g' {} +
-          find . -name "Kconfig*" -type f -exec sed -i 's/^    source ".*oplus.*/# & /g' {} +
-          find . -name "Kconfig*" -type f -exec sed -i 's/^source "drivers\/base\/KconfigUpdate/# & /g' {} +
-          
-          # 2. البحث عن ملف الإعدادات الخاص بالمعالج SM8550
+          # سكريبت ذكي للبحث عن أي ملف Kconfig مفقود وتعطيله آلياً
+          find . -name "Kconfig*" -type f | while read file; do
+            # البحث عن الأسطر التي تبدأ بـ source "
+            grep 'source "' "$file" | cut -d'"' -f2 | while read target; do
+              if [ ! -f "$target" ]; then
+                echo "Fixing missing file: $target in $file"
+                # وضع علامة # لتعطيل السطر المفقود
+                sed -i "s|source \"$target\"|# source \"$target\"|g" "$file"
+              fi
+            done
+          done
+
+          # البحث عن ملف الإعدادات
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          echo "Using Config: $CONF"
-          
-          # 3. تفعيل دعم Atheros AR9271 للوايفاي الخارجي
+          # تفعيل تعريفات Atheros
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # 4. بدء عملية البناء (هنا تبدأ المرحلة الطويلة)
+          # بدء البناء
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Fixed
+          name: Kernel_PJA110_Atheros
           path: out/arch/arm64/boot/Image
