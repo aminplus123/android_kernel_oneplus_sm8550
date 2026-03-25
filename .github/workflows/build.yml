@@ -1,4 +1,4 @@
-name: Kernel_Build_Final_Success
+name: Kernel_Build_Final_Bypass
 on:
   workflow_dispatch:
 
@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
-        uses: actions/checkout@v4
+        uses: checkout@v4
 
       - name: Install_Essentials
         run: |
@@ -16,7 +16,7 @@ jobs:
 
       - name: Ultimate_Patching
         run: |
-          # 1. تنظيف شامل لكل الملفات المفقودة (Oplus و KconfigUpdate)
+          # 1. تعطيل أي استدعاء لملفات Kconfig مفقودة بشكل جذري
           find . -name "Kconfig*" -type f | while read file; do
             grep 'source "' "$file" | cut -d'"' -f2 | while read target; do
               if [ ! -f "$target" ]; then
@@ -25,27 +25,33 @@ jobs:
             done
           done
 
-          # 2. تحديد الملف يدوياً (المسار الأكثر احتمالاً في معالجات SM8550)
-          # سنحاول البحث عنه وتثبيته في متغير واحد
-          CONF="vendor/sm8550_defconfig"
+          # 2. البحث اليدوي المعمق عن ملف الإعدادات
+          # سنبحث عن أي ملف ينتهي بـ defconfig ويحتوي على sm8550
+          CONF_PATH=$(find arch/arm64/configs -name "*sm8550*defconfig*" | head -n 1)
           
-          # التأكد من وجود الملف قبل المتابعة
-          if [ ! -f "arch/arm64/configs/$CONF" ]; then
-             # محاولة البحث عن أي ملف defconfig يحتوي على 8550
-             CONF=$(find arch/arm64/configs -name "*8550*defconfig" | head -n 1 | sed 's|arch/arm64/configs/||')
+          if [ -z "$CONF_PATH" ]; then
+            # إذا لم يجده، سنستخدم الإعداد الافتراضي العام لـ qcom
+            CONF_PATH=$(find arch/arm64/configs -name "vendor/parrot_defconfig" | head -n 1)
           fi
 
-          echo "Selected Config: $CONF"
+          # إذا استمر الفشل، سنستخدم أول ملف defconfig يجده في المجلد
+          if [ -z "$CONF_PATH" ]; then
+            CONF_PATH=$(find arch/arm64/configs -name "*defconfig" | head -n 1)
+          fi
 
-          # 3. حقن تعريفات Atheros AR9271
-          echo "CONFIG_ATH9K_HTC=y" >> arch/arm64/configs/$CONF
-          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> arch/arm64/configs/$CONF
-          echo "CONFIG_MAC80211=y" >> arch/arm64/configs/$CONF
-          echo "CONFIG_CFG80211=y" >> arch/arm64/configs/$CONF
+          # استخراج اسم الملف فقط بدون المسار الكامل
+          CONF_NAME=$(basename "$CONF_PATH")
+          echo "Final Decision: Using config $CONF_NAME from $CONF_PATH"
+
+          # 3. تفعيل دعم Atheros AR9271 بشكل إجباري
+          echo "CONFIG_ATH9K_HTC=y" >> "$CONF_PATH"
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> "$CONF_PATH"
+          echo "CONFIG_MAC80211=y" >> "$CONF_PATH"
+          echo "CONFIG_CFG80211=y" >> "$CONF_PATH"
           
-          # 4. بدء البناء الفعلي
+          # 4. بدء البناء الفعلي مع تنظيف المجلد أولاً
           mkdir -p out
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $CONF
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- "$CONF_NAME"
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
