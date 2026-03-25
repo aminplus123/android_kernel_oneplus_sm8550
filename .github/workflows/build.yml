@@ -1,4 +1,4 @@
-name: Compile_And_Patch_Atheros
+name: Compile_And_Patch_Atheros_Final
 on:
   workflow_dispatch:
 
@@ -16,14 +16,18 @@ jobs:
 
       - name: Build_KPIMG_From_Source
         run: |
-          # تحميل الكود المصدري للأداة وبناؤها فوراً
+          # تحميل الكود المصدري
           git clone https://github.com/bmax121/KernelPatch.git
-          cd KernelPatch/kpimg
-          go build -o ../../kpimg
+          cd KernelPatch
+          
+          # البحث عن مجلد المكون الأساسي وبناؤه (تصحيح خطأ المسار)
+          find . -name "go.mod" # للتأكد من مكان ملف المشروع
+          cd cmd/kpimg || cd kpimg || echo "Searching for directory..."
+          
+          go build -o ../../kpimg_final main.go || go build -o ../../kpimg_final
           cd ../..
-          chmod +x kpimg
-          echo "Success! Tool compiled for current server architecture."
-          ls -lh kpimg
+          chmod +x kpimg_final
+          ls -lh kpimg_final
 
       - name: Patch_Kernel_Image
         run: |
@@ -32,8 +36,8 @@ jobs:
             exit 1
           fi
           
-          # تنفيذ الحقن لتعريف Atheros AR9271
-          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # استخدام الأداة التي بنيناها للتو
+          ./kpimg_final -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
         uses: actions/upload-artifact@v4
