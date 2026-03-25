@@ -11,10 +11,9 @@ jobs:
 
       - name: Download_KernelPatch_Direct
         run: |
-          # استخدام رابط مباشر ومؤكد لأحدث نسخة مستقرة
+          # تحميل الأداة في المجلد الحالي مباشرة
           curl -L -o kpimg https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64
           chmod +x kpimg
-          sudo mv kpimg /usr/local/bin/
           
       - name: Patch_Atheros_Drivers
         run: |
@@ -23,8 +22,8 @@ jobs:
             exit 1
           fi
           
-          # عملية الحقن لتعريف الواي فاي Atheros
-          kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تشغيل الأداة من المجلد الحالي باستخدام ./
+          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
         uses: actions/upload-artifact@v4
