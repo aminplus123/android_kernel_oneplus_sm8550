@@ -1,4 +1,4 @@
-name: Ultimate_Kernel_Injection_Final_Fix
+name: Ultimate_Kernel_Injection_Success_V3
 on:
   workflow_dispatch:
 
@@ -9,18 +9,31 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
+      - name: Auto_Detect_And_Download_Tool
+        run: |
+          # البحث عن أحدث نسخة من الأداة وتحميلها آلياً
+          URL=$(curl -s https://api.github.com/repos/bmax121/KernelPatch/releases/latest | grep "browser_download_url.*linux-x86_64" | cut -d '"' -f 4)
+          echo "Found Download URL: $URL"
+          curl -L "$URL" -o kpimg
+          
+          # إعطاء الصلاحيات وفحص الملف
+          chmod +x kpimg
+          ls -lh kpimg
+          
+          # تأكد أن الملف ليس فارغاً
+          if [ ! -s "kpimg" ]; then
+            echo "Error: Download failed or file is empty!"
+            exit 1
+          fi
+
       - name: Patch_Atheros_Drivers
         run: |
-          # التأكد من وجود ملف الأداة kpimg وملف الإقلاع
-          if [ ! -f "kpimg" ]; then
-            echo "Error: kpimg tool not found in repository root!"
+          if [ ! -f "init_boot.img" ]; then
+            echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # إعطاء صلاحية التشغيل
-          chmod +x kpimg
-          
-          # تنفيذ عملية الحقن لتعريف AR9271
+          # تنفيذ عملية الحقن
           ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
