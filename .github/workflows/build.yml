@@ -9,10 +9,10 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Download_Prebuilt_KernelPatch
+      - name: Download_KernelPatch_Direct
         run: |
-          # تصحيح الرابط المباشر للأداة
-          wget https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64 -O kpimg
+          # استخدام رابط مباشر ومؤكد لأحدث نسخة مستقرة
+          curl -L -o kpimg https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64
           chmod +x kpimg
           sudo mv kpimg /usr/local/bin/
           
@@ -23,7 +23,7 @@ jobs:
             exit 1
           fi
           
-          # حقن التعريف مباشرة
+          # عملية الحقن لتعريف الواي فاي Atheros
           kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
