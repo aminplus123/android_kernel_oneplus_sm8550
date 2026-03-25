@@ -1,4 +1,4 @@
-name: Ultimate_Kernel_Success_Fixed_Final
+name: Ultimate_Kernel_Success_Final_Verdict
 on:
   workflow_dispatch:
 
@@ -9,15 +9,15 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Install_KernelPatch_Properly
+      - name: Install_Correct_X86_64_Tool
         run: |
-          # تحميل النسخة المخصصة للينكس (x86_64) من رابط مباشر ثابت
-          wget https://github.com/bmax121/KernelPatch/releases/download/0.13.0/kpimg-linux -O kpimg
+          # تحميل النسخة المخصصة حصراً لمعمارية السيرفر (linux-x86_64)
+          # هذا الملف حجمه حوالي 1.9MB وليس 176KB
+          wget https://github.com/bmax121/KernelPatch/releases/download/0.13.0/kpimg-v0.13.0-linux-x86_64 -O kpimg
           
-          # إعطاء صلاحية التشغيل
           chmod +x kpimg
           
-          # فحص حجم الملف (لو الحجم صغير بالبايت يعني التحميل فشل)
+          # فحص للتأكد من المعمارية (يجب أن تظهر x86-64)
           ls -lh kpimg
           file kpimg
 
@@ -28,7 +28,7 @@ jobs:
             exit 1
           fi
           
-          # تنفيذ الحقن
+          # تنفيذ الحقن باستخدام الأداة الصحيحة
           ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
