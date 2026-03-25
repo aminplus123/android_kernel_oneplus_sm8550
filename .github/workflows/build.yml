@@ -1,53 +1,34 @@
-name: Kernel_Build_Final_Bypass
+name: GKI_Atheros_Patch_Final
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout_Source
-        uses: actions/checkout@v4
-
-      - name: Install_Essentials
+      - name: Setup_Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
+          sudo apt-get install -y git cpio python3 python3-pip
+          pip3 install pyelftools
 
-      - name: Ultimate_Patching
+      - name: Download_Stable_GKI
         run: |
-          # 1. تعطيل أي استدعاء لملفات Kconfig مفقودة بشكل جذري
-          find . -name "Kconfig*" -type f | while read file; do
-            grep 'source "' "$file" | cut -d'"' -f2 | while read target; do
-              if [ ! -f "$target" ]; then
-                sed -i "s|source \"$target\"|# source \"$target\"|g" "$file"
-              fi
-            done
-          done
-
-          # 2. البحث المعمق عن ملف الإعدادات (defconfig)
-          CONF_PATH=$(find arch/arm64/configs -name "*sm8550*defconfig*" | head -n 1)
+          # سنقوم بجلب أداة الحقن المخصصة لتعريفات Atheros
+          git clone https://github.com/dabao1955/kernel_build_action.git
+          cd kernel_build_action
           
-          if [ -z "$CONF_PATH" ]; then
-            CONF_PATH=$(find arch/arm64/configs -name "*defconfig" | head -n 1)
-          fi
-
-          CONF_NAME=$(basename "$CONF_PATH")
-          echo "Final Decision: Using config $CONF_NAME from $CONF_PATH"
-
-          # 3. تفعيل دعم Atheros AR9271 (الهدف الأساسي)
-          echo "CONFIG_ATH9K_HTC=y" >> "$CONF_PATH"
-          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> "$CONF_PATH"
-          echo "CONFIG_MAC80211=y" >> "$CONF_PATH"
-          echo "CONFIG_CFG80211=y" >> "$CONF_PATH"
+      - name: Build_With_Atheros_Drivers
+        run: |
+          # هنا سنطلب من السكريبت تفعيل USB_NET و ATH9K_HTC
+          echo "CONFIG_USB_NET_DRIVERS=y" >> .config
+          echo "CONFIG_ATH9K_HTC=y" >> .config
+          echo "CONFIG_CFG80211=y" >> .config
+          # سيقوم السيرفر هنا بعملية بناء سريعة جداً للتعريفات فقط
+          make -j$(nproc)
           
-          # 4. بدء البناء الفعلي
-          mkdir -p out
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- "$CONF_NAME"
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
-
-      - name: Upload_Kernel
+      - name: Upload_Final_Boot
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Atheros
-          path: out/arch/arm64/boot/Image
+          name: Patched_Boot_Atheros
+          path: out/*.img
