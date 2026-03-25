@@ -1,4 +1,4 @@
-name: Kernel_Build_Fixed_V2
+name: Kernel_Build_Final_Shield
 on:
   workflow_dispatch:
 
@@ -16,29 +16,28 @@ jobs:
 
       - name: Patch_and_Build
         run: |
-          # 1. إصلاح ملف Kconfig وتجاوز الخطأ في oplus_cpu/thermal
+          # 1. تنظيف شامل لملف Kconfig من كافة المسارات المفقودة لشركة Oplus
+          # هذا الأمر سيحذف أي سطر يحتوي على oplus_cpu ويسبب تعطل البناء
           if [ -f init/Kconfig ]; then
-            sed -i '/kernel\/oplus_cpu\/thermal\/Kconfig/d' init/Kconfig
+            sed -i '/oplus_cpu/d' init/Kconfig
           fi
           
-          # 2. البحث عن ملف الإعدادات (defconfig)
+          # 2. البحث عن ملف الإعدادات
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          echo "Using Config: $CONF"
-          
-          # 3. حقن تعريفات Atheros AR9271
+          # 3. تفعيل تعريفات الوايفاي الخارجي
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # 4. بناء الكيرنال
+          # 4. بدء البناء
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Fixed
+          name: Kernel_PJA110_Atheros
           path: out/arch/arm64/boot/Image
