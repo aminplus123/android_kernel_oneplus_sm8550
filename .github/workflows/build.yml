@@ -1,0 +1,36 @@
+name: Kernel_Build
+on:
+  workflow_dispatch:
+
+jobs:
+  build_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout_Source
+        uses: actions/checkout@v4
+
+      - name: Setup_Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
+
+      - name: Patch_Kernel_Config
+        run: |
+          # إضافة تعريفات Atheros AR9271 يدوياً لملف الإعدادات
+          CONF="arch/arm64/configs/vendor/sm8550_defconfig"
+          echo "CONFIG_ATH9K_HTC=y" >> $CONF
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
+          echo "CONFIG_MAC80211=y" >> $CONF
+          echo "CONFIG_CFG80211=y" >> $CONF
+
+      - name: Compile_Kernel
+        run: |
+          # بدء عملية الترجمة باستخدام مترجم جوجل LLVM
+          make ARCH=arm64 O=out vendor/sm8550_defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 O=out -j$(nproc)
+
+      - name: Upload_Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel_Image_PJA110
+          path: out/arch/arm64/boot/Image
