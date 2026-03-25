@@ -16,7 +16,7 @@ jobs:
 
       - name: Ultimate_Patching
         run: |
-          # 1. تنظيف شامل لكل الملفات المفقودة التي عطلت البناء سابقاً
+          # 1. تنظيف شامل لكل الملفات المفقودة (Oplus و KconfigUpdate)
           find . -name "Kconfig*" -type f | while read file; do
             grep 'source "' "$file" | cut -d'"' -f2 | while read target; do
               if [ ! -f "$target" ]; then
@@ -25,25 +25,27 @@ jobs:
             done
           done
 
-          # 2. البحث عن ملف الإعدادات بدقة وحقن تعريفات Atheros فيه مباشرة
-          CONF_PATH=$(find arch/arm64/configs -name "*defconfig*" | grep "sm8550" | head -n 1)
+          # 2. تحديد الملف يدوياً (المسار الأكثر احتمالاً في معالجات SM8550)
+          # سنحاول البحث عنه وتثبيته في متغير واحد
+          CONF="vendor/sm8550_defconfig"
           
-          if [ -z "$CONF_PATH" ]; then
-            echo "Error: Could not find config file automatically."
-            exit 1
+          # التأكد من وجود الملف قبل المتابعة
+          if [ ! -f "arch/arm64/configs/$CONF" ]; then
+             # محاولة البحث عن أي ملف defconfig يحتوي على 8550
+             CONF=$(find arch/arm64/configs -name "*8550*defconfig" | head -n 1 | sed 's|arch/arm64/configs/||')
           fi
+
+          echo "Selected Config: $CONF"
+
+          # 3. حقن تعريفات Atheros AR9271
+          echo "CONFIG_ATH9K_HTC=y" >> arch/arm64/configs/$CONF
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> arch/arm64/configs/$CONF
+          echo "CONFIG_MAC80211=y" >> arch/arm64/configs/$CONF
+          echo "CONFIG_CFG80211=y" >> arch/arm64/configs/$CONF
           
-          echo "Using Config found at: $CONF_PATH"
-          
-          # تفعيل تعريفات الوايفاي الخارجي Atheros AR9271
-          echo "CONFIG_ATH9K_HTC=y" >> $CONF_PATH
-          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF_PATH
-          echo "CONFIG_MAC80211=y" >> $CONF_PATH
-          echo "CONFIG_CFG80211=y" >> $CONF_PATH
-          
-          # 3. بناء الكيرنال باستخدام المسار المباشر لتجنب أخطاء basename
+          # 4. بدء البناء الفعلي
           mkdir -p out
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF_PATH)
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $CONF
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
