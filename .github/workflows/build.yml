@@ -1,4 +1,4 @@
-name: Kernel_Build_Final
+name: Kernel_Build_Pro
 on:
   workflow_dispatch:
 
@@ -9,40 +9,40 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Setup_Tools
+      - name: Install_Build_Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm
 
-      - name: Auto_Patch_and_Compile
+      - name: Download_Clang
         run: |
-          # البحث التلقائي عن ملف الإعدادات الخاص بـ SM8550
-          # سنبحث عن أي ملف يحتوي على تعريف المعالج في مجلد configs
-          CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
-          
-          if [ -z "$CONF" ]; then
-            echo "Searching for any vendor config..."
-            CONF=$(find arch/arm64/configs/vendor -type f | head -n 1)
-          fi
+          mkdir -p clang
+          cd clang
+          curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+          tar -xzf clang-r487747c.tar.gz
+          echo "$(pwd)/bin" >> $GITHUB_PATH
 
-          echo "Found Config at: $CONF"
+      - name: Auto_Patch_and_Build
+        run: |
+          # البحث عن ملف الـ defconfig وتعديله
+          CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
+          if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          # إضافة تعريفات الوايفاي الخارجي
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # استخراج اسم الملف فقط بدون المسار الكامل لاستخدامه في أمر make
-          CONF_NAME=$(basename $CONF)
-
-          # بدء عملية البناء
-          mkdir -p out
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 $CONF_NAME
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 -j$(nproc)
+          # بدء البناء الفعلي
+          make ARCH=arm64 O=out $(basename $CONF)
+          make ARCH=arm64 O=out \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            LLVM=1 LLVM_IAS=1 -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Atheros
+          name: Kernel_Image_Final
           path: out/arch/arm64/boot/Image
