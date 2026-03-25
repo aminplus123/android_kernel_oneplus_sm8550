@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
-        uses: checkout@v4
+        uses: actions/checkout@v4
 
       - name: Install_Essentials
         run: |
@@ -25,31 +25,23 @@ jobs:
             done
           done
 
-          # 2. البحث اليدوي المعمق عن ملف الإعدادات
-          # سنبحث عن أي ملف ينتهي بـ defconfig ويحتوي على sm8550
+          # 2. البحث المعمق عن ملف الإعدادات (defconfig)
           CONF_PATH=$(find arch/arm64/configs -name "*sm8550*defconfig*" | head -n 1)
           
-          if [ -z "$CONF_PATH" ]; then
-            # إذا لم يجده، سنستخدم الإعداد الافتراضي العام لـ qcom
-            CONF_PATH=$(find arch/arm64/configs -name "vendor/parrot_defconfig" | head -n 1)
-          fi
-
-          # إذا استمر الفشل، سنستخدم أول ملف defconfig يجده في المجلد
           if [ -z "$CONF_PATH" ]; then
             CONF_PATH=$(find arch/arm64/configs -name "*defconfig" | head -n 1)
           fi
 
-          # استخراج اسم الملف فقط بدون المسار الكامل
           CONF_NAME=$(basename "$CONF_PATH")
           echo "Final Decision: Using config $CONF_NAME from $CONF_PATH"
 
-          # 3. تفعيل دعم Atheros AR9271 بشكل إجباري
+          # 3. تفعيل دعم Atheros AR9271 (الهدف الأساسي)
           echo "CONFIG_ATH9K_HTC=y" >> "$CONF_PATH"
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> "$CONF_PATH"
           echo "CONFIG_MAC80211=y" >> "$CONF_PATH"
           echo "CONFIG_CFG80211=y" >> "$CONF_PATH"
           
-          # 4. بدء البناء الفعلي مع تنظيف المجلد أولاً
+          # 4. بدء البناء الفعلي
           mkdir -p out
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- "$CONF_NAME"
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
