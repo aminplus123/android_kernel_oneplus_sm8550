@@ -1,4 +1,4 @@
-name: Kernel_Build_Fixed
+name: Kernel_Build_Fixed_V2
 on:
   workflow_dispatch:
 
@@ -12,22 +12,33 @@ jobs:
       - name: Install_Essentials
         run: |
           sudo apt-get update
-          sudo apt-get install -p bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
 
       - name: Patch_and_Build
         run: |
-          # 1. تجاوز ملف Kconfig المفقود الذي يسبب الفشل
-          # هذا الأمر يحذف السطر الذي يطلب ملف oplus_cpu/thermal
-          sed -i '/kernel\/oplus_cpu\/thermal\/Kconfig/d' init/Kconfig
+          # 1. إصلاح ملف Kconfig وتجاوز الخطأ في oplus_cpu/thermal
+          if [ -f init/Kconfig ]; then
+            sed -i '/kernel\/oplus_cpu\/thermal\/Kconfig/d' init/Kconfig
+          fi
           
-          # 2. البحث التلقائي عن ملف الإعدادات الخاص بـ SM8550
+          # 2. البحث عن ملف الإعدادات (defconfig)
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          echo "Found Config at: $CONF"
+          echo "Using Config: $CONF"
           
-          # 3. تفعيل تعريفات Atheros للوايفاي الخارجي
+          # 3. حقن تعريفات Atheros AR9271
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
-          echo "CONFIG_CFG80211
+          echo "CONFIG_CFG80211=y" >> $CONF
+          
+          # 4. بناء الكيرنال
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
+
+      - name: Upload_Kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel_PJA110_Fixed
+          path: out/arch/arm64/boot/Image
