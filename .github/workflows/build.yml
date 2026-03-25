@@ -1,4 +1,4 @@
-name: Ultimate_Kernel_Injection_Fixed
+name: Ultimate_Kernel_Injection_Final_Fix
 on:
   workflow_dispatch:
 
@@ -9,29 +9,18 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Download_KernelPatch_Safe
-        run: |
-          # تحميل إصدار مستقر برابط مباشر خام (Raw) لضمان عدم تحميل صفحة HTML
-          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
-          
-          # التأكد من أن الملف ليس فارغاً (يجب أن يكون حجمه أكثر من 1 ميجا)
-          filesize=$(stat -c%s "kpimg")
-          if [ $filesize -lt 1000000 ]; then
-            echo "Error: Download failed (file too small). Trying alternative..."
-            curl -L "https://github.com/bmax121/KernelPatch/releases/latest/download/kpimg-v0.20.1-linux-x86_64" -o kpimg
-          fi
-          
-          chmod +x kpimg
-          ls -lh kpimg
-          
       - name: Patch_Atheros_Drivers
         run: |
-          if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found!"
+          # التأكد من وجود ملف الأداة kpimg وملف الإقلاع
+          if [ ! -f "kpimg" ]; then
+            echo "Error: kpimg tool not found in repository root!"
             exit 1
           fi
           
-          # تشغيل الحقن بمسار مباشر ومؤكد
+          # إعطاء صلاحية التشغيل
+          chmod +x kpimg
+          
+          # تنفيذ عملية الحقن لتعريف AR9271
           ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
