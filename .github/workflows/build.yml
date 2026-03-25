@@ -1,4 +1,4 @@
-name: Kernel_Build_Final_Ultimate
+name: Kernel_Build_Ultimate_Fix
 on:
   workflow_dispatch:
 
@@ -16,27 +16,27 @@ jobs:
 
       - name: Patch_and_Build
         run: |
-          # 1. تنظيف ملفات Kconfig المكسورة بذكاء (حذف الإشارات للملفات المفقودة فقط)
-          # سنستهدف الأسطر التي تحتوي على "source" وتشير لملفات oplus المفقودة
-          find . -name "Kconfig*" -type f -exec sed -i '/oplus_cpu/d' {} +
-          find . -name "Kconfig*" -type f -exec sed -i '/FWUpdate/d' {} +
+          # 1. إصلاح ذكي لملفات Kconfig (تعطيل المسارات المفقودة بدل حذفها)
+          # هذا الأمر يضع # قبل أي سطر يحتوي على ملفات oplus أو KconfigUpdate المفقودة
+          find . -name "Kconfig*" -type f -exec sed -i 's/^source "kernel\/oplus_cpu/# source "kernel\/oplus_cpu/g' {} +
+          find . -name "Kconfig*" -type f -exec sed -i 's/^source "drivers\/base\/KconfigUpdate/# source "drivers\/base\/KconfigUpdate/g' {} +
           
-          # 2. البحث عن ملف الإعدادات الصحيح
+          # 2. البحث عن ملف الإعدادات
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          # 3. حقن تعريفات Atheros AR9271
+          # 3. تفعيل تعريفات Atheros
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # 4. بدء البناء مع تجاهل تحذيرات المترجم التي توقف العملية
+          # 4. بدء البناء مع تجاهل التحذيرات التي لا تعيق العملية
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-error" -j$(nproc)
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Atheros
+          name: Kernel_PJA110_Atheros_Fixed
           path: out/arch/arm64/boot/Image
