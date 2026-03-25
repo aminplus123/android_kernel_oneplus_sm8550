@@ -1,4 +1,4 @@
-name: Ultimate_Kernel_Success_Final
+name: Ultimate_Kernel_Success_Fixed
 on:
   workflow_dispatch:
 
@@ -9,26 +9,26 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Download_Correct_x86_Tool
+      - name: Setup_Correct_Tool
         run: |
-          # تحميل نسخة السيرفر (Linux x86_64) لضمان عدم حدوث Exec format error
-          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg_server
-          chmod +x kpimg_server
+          # تحميل النسخة المخصصة للسيرفرات (Linux x86_64) حصراً
+          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
+          chmod +x kpimg
           
-          # فحص الحجم للتأكد من أنها النسخة الكاملة (يجب أن تكون > 1.5MB)
-          ls -lh kpimg_server
+          # التحقق من أن الملف محمل وصحيح (يجب أن يكون حجمه 2.0M تقريباً)
+          ls -lh kpimg
 
       - name: Patch_Atheros_Drivers
         run: |
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found!"
+            echo "Error: init_boot.img is missing!"
             exit 1
           fi
           
-          # استخدام النسخة الصحيحة التي حملناها للتو
-          ./kpimg_server -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تنفيذ عملية الحقن
+          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
-      - name: Upload_Result
+      - name: Upload_Final_Result
         uses: actions/upload-artifact@v4
         with:
           name: OnePlus_Ace2Pro_Atheros_Final
