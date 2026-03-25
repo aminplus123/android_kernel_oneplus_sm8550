@@ -1,46 +1,45 @@
-name: Compile_And_Patch_Atheros_Final
+name: Kernel_Patch_Final_Success
 on:
   workflow_dispatch:
 
 jobs:
-  build_and_patch:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Setup_Go_Environment
+      - name: Setup_Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
 
-      - name: Build_KPIMG_From_Source
+      - name: Install_KernelPatch_Tool
         run: |
-          # تحميل الكود المصدري
-          git clone https://github.com/bmax121/KernelPatch.git
-          cd KernelPatch
+          # تثبيت الأداة رسمياً من المستودع المباشر
+          # هذه الخطوة تضمن بناء النسخة الصحيحة للسيرفر تلقائياً
+          go install github.com/bmax121/KernelPatch/cmd/kpimg@latest
           
-          # البحث عن مجلد المكون الأساسي وبناؤه (تصحيح خطأ المسار)
-          find . -name "go.mod" # للتأكد من مكان ملف المشروع
-          cd cmd/kpimg || cd kpimg || echo "Searching for directory..."
+          # نقل الأداة للمجلد الرئيسي لتسهيل استخدامها
+          cp $(go env GOPATH)/bin/kpimg .
+          chmod +x kpimg
           
-          go build -o ../../kpimg_final main.go || go build -o ../../kpimg_final
-          cd ../..
-          chmod +x kpimg_final
-          ls -lh kpimg_final
+          # التأكد من وجود الأداة ومعماريتها
+          ls -lh kpimg
+          file kpimg
 
-      - name: Patch_Kernel_Image
+      - name: Patch_Kernel
         run: |
           if [ ! -f "init_boot.img" ]; then
             echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # استخدام الأداة التي بنيناها للتو
-          ./kpimg_final -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تنفيذ الحقن لتعريف Atheros AR9271
+          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
         uses: actions/upload-artifact@v4
         with:
-          name: OnePlus_Ace2Pro_Atheros_Compiled
+          name: OnePlus_Ace2Pro_Atheros_Ready
           path: init_boot_atheros.img
