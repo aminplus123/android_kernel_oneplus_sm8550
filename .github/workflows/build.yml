@@ -11,8 +11,9 @@ jobs:
 
       - name: Download_KernelPatch_Direct
         run: |
-          # تحميل الأداة في المجلد الحالي مباشرة
-          curl -L -o kpimg https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64
+          # تحميل الأداة مباشرة من الرابط الرسمي الخام
+          curl -L https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64 -o kpimg
+          # إعطاء صلاحية التنفيذ (chmod 777) لضمان العمل
           chmod +x kpimg
           
       - name: Patch_Atheros_Drivers
@@ -22,8 +23,8 @@ jobs:
             exit 1
           fi
           
-          # تشغيل الأداة من المجلد الحالي باستخدام ./
-          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تشغيل الحقن باستخدام المسار الكامل للمجلد الحالي
+          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_USB_NET_DRIVERS=y CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
         uses: actions/upload-artifact@v4
