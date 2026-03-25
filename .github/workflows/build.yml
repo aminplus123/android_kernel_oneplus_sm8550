@@ -1,36 +1,40 @@
-name: Ultimate_Atheros_Final_Fix
+name: Python_Kernel_Injector_Final
 on:
   workflow_dispatch:
 
 jobs:
-  inject:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Install_Standard_Tool
+      - name: Patch_Using_Python
         run: |
-          # تحميل النسخة المخصصة للسيرفر (Linux x86_64) حصراً
-          # هذه النسخة حجمها ~2MB وتعمل على معمارية السيرفر
-          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
-          
-          chmod +x kpimg
-          
-          # فحص للتأكد من المعمارية (يجب أن تظهر x86-64)
-          ls -lh kpimg
-          file kpimg
+          # كتابة سكربت الحقن الذكي
+          cat << 'EOF' > patch_script.py
+          import os
 
-      - name: Patch_Kernel_Image
-        run: |
-          if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found!"
-            exit 1
-          fi
-          
-          # تنفيذ الحقن لتعريف Atheros AR9271
-          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
-          
+          target_file = "init_boot.img"
+          output_file = "init_boot_atheros.img"
+          config_to_add = b"\nCONFIG_ATH9K_HTC=y\n"
+
+          if os.path.exists(target_file):
+              with open(target_file, "rb") as f:
+                  data = f.read()
+              
+              # إضافة الإعداد في نهاية الملف (طريقة الحقن المباشر)
+              with open(output_file, "wb") as f:
+                  f.write(data + config_to_add)
+              print("Successfully injected Atheros config into kernel image!")
+          else:
+              print("Error: init_boot.img not found!")
+              exit(1)
+          EOF
+
+          # تشغيل السكربت
+          python3 patch_script.py
+
       - name: Upload_Result
         uses: actions/upload-artifact@v4
         with:
