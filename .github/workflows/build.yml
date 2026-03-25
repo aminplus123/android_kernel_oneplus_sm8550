@@ -11,21 +11,19 @@ jobs:
 
       - name: Download_Prebuilt_KernelPatch
         run: |
-          # تحميل أداة التعديل المباشر (نسخة جاهزة لتجنب أخطاء Makefile)
+          # تصحيح الرابط المباشر للأداة
           wget https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64 -O kpimg
           chmod +x kpimg
           sudo mv kpimg /usr/local/bin/
           
       - name: Patch_Atheros_Drivers
         run: |
-          # التأكد من وجود ملفك في المستودع
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found! Please make sure the file is uploaded to the root directory."
+            echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # عملية الحقن المباشر لتعريف Atheros وتفعيل المكونات اللازمة
-          # سنقوم بإضافة سطر الإعدادات للكيرنال مباشرة
+          # حقن التعريف مباشرة
           kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
