@@ -1,38 +1,42 @@
-name: Final_Fix_No_More_Errors
+name: Compile_And_Patch_Atheros
 on:
   workflow_dispatch:
 
 jobs:
-  inject:
+  build_and_patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Force_Download_Correct_Tool
-        run: |
-          # تحميل النسخة المخصصة للسيرفرات (x86_64) لضمان التوافق
-          # هذا الرابط يجلب النسخة التي حجمها 1.9MB تقريباً
-          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
-          
-          chmod +x kpimg
-          
-          # فحص المعمارية (يجب أن تظهر x86-64 لتنجح العملية)
-          ls -lh kpimg
-          file kpimg
+      - name: Setup_Go_Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
 
-      - name: Patch_Atheros_Drivers
+      - name: Build_KPIMG_From_Source
+        run: |
+          # تحميل الكود المصدري للأداة وبناؤها فوراً
+          git clone https://github.com/bmax121/KernelPatch.git
+          cd KernelPatch/kpimg
+          go build -o ../../kpimg
+          cd ../..
+          chmod +x kpimg
+          echo "Success! Tool compiled for current server architecture."
+          ls -lh kpimg
+
+      - name: Patch_Kernel_Image
         run: |
           if [ ! -f "init_boot.img" ]; then
             echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # تنفيذ الحقن بالأداة الصحيحة
+          # تنفيذ الحقن لتعريف Atheros AR9271
           ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
         uses: actions/upload-artifact@v4
         with:
-          name: OnePlus_Ace2Pro_Atheros_Final
+          name: OnePlus_Ace2Pro_Atheros_Compiled
           path: init_boot_atheros.img
