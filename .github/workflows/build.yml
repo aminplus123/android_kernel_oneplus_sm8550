@@ -1,9 +1,9 @@
-name: Kernel_Build
+name: Kernel_Build_Final
 on:
   workflow_dispatch:
 
 jobs:
-  build_job:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
@@ -14,23 +14,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
 
-      - name: Patch_Kernel_Config
+      - name: Auto_Patch_and_Compile
         run: |
-          # إضافة تعريفات Atheros AR9271 يدوياً لملف الإعدادات
-          CONF="arch/arm64/configs/vendor/sm8550_defconfig"
+          # البحث التلقائي عن ملف الإعدادات الخاص بـ SM8550
+          # سنبحث عن أي ملف يحتوي على تعريف المعالج في مجلد configs
+          CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
+          
+          if [ -z "$CONF" ]; then
+            echo "Searching for any vendor config..."
+            CONF=$(find arch/arm64/configs/vendor -type f | head -n 1)
+          fi
+
+          echo "Found Config at: $CONF"
+          
+          # إضافة تعريفات الوايفاي الخارجي
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
+          
+          # استخراج اسم الملف فقط بدون المسار الكامل لاستخدامه في أمر make
+          CONF_NAME=$(basename $CONF)
 
-      - name: Compile_Kernel
-        run: |
-          # بدء عملية الترجمة باستخدام مترجم جوجل LLVM
-          make ARCH=arm64 O=out vendor/sm8550_defconfig
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 O=out -j$(nproc)
+          # بدء عملية البناء
+          mkdir -p out
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 $CONF_NAME
+          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 -j$(nproc)
 
-      - name: Upload_Result
+      - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_Image_PJA110
+          name: Kernel_PJA110_Atheros
           path: out/arch/arm64/boot/Image
