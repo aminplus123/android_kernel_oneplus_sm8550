@@ -1,0 +1,33 @@
+name: K_Build
+on:
+  workflow_dispatch:
+
+jobs:
+  kernel_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm crossbuild-essential-arm64
+
+      - name: Config
+        run: |
+          CONF="arch/arm64/configs/vendor/sm8550_defconfig"
+          echo "CONFIG_ATH9K_HTC=y" >> $CONF
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
+          echo "CONFIG_MAC80211=y" >> $CONF
+          echo "CONFIG_CFG80211=y" >> $CONF
+
+      - name: Build
+        run: |
+          make ARCH=arm64 O=out vendor/sm8550_defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 O=out -j$(nproc)
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel_PJA110
+          path: out/arch/arm64/boot/Image
