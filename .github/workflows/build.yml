@@ -1,0 +1,42 @@
+name: Build OnePlus SM8550 Kernel
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm
+
+      - name: Set Up Clang
+        run: |
+          echo "Setting up Google Clang Toolchain..."
+          # سنستخدم Clang المدمج في أوبنتو للتبسيط في التجربة الأولى
+
+      - name: Configure Kernel (Add Atheros Support)
+        run: |
+          # هنا نقوم بتعديل ملف الإعدادات لإضافة دعم AR9271 تلقائياً
+          # تأكد من اسم ملف الـ defconfig الصحيح لجهازك (غالباً sm8550_defconfig)
+          CONF_PATH="arch/arm64/configs/vendor/sm8550_defconfig"
+          echo "CONFIG_ATH9K_HTC=y" >> $CONF_PATH
+          echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF_PATH
+          echo "CONFIG_MAC80211=y" >> $CONF_PATH
+          echo "CONFIG_CFG80211=y" >> $CONF_PATH
+
+      - name: Build Kernel
+        run: |
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 O=out vendor/sm8550_defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 O=out -j$(nproc)
+
+      - name: Upload Kernel Image
+        uses: actions/upload-artifact@v3
+        with:
+          name: Kernel_Image
+          path: out/arch/arm64/boot/Image
+          
