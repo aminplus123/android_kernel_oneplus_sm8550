@@ -1,4 +1,4 @@
-name: Kernel_Build_Ultimate_Fix
+name: Kernel_Build_Final_Safe
 on:
   workflow_dispatch:
 
@@ -16,27 +16,27 @@ jobs:
 
       - name: Patch_and_Build
         run: |
-          # 1. إصلاح ذكي لملفات Kconfig (تعطيل المسارات المفقودة بدل حذفها)
-          # هذا الأمر يضع # قبل أي سطر يحتوي على ملفات oplus أو KconfigUpdate المفقودة
-          find . -name "Kconfig*" -type f -exec sed -i 's/^source "kernel\/oplus_cpu/# source "kernel\/oplus_cpu/g' {} +
-          find . -name "Kconfig*" -type f -exec sed -i 's/^source "drivers\/base\/KconfigUpdate/# source "drivers\/base\/KconfigUpdate/g' {} +
+          # الحل النهائي: تعطيل أي إشارة لملفات oplus في جميع ملفات Kconfig
+          # هذا الأمر سيبحث في كل المجلدات ويضع علامة # قبل أي سطر يطلب ملفات oplus
+          find . -name "Kconfig*" -type f -exec sed -i 's/^source ".*oplus.*/# & /g' {} +
+          find . -name "Kconfig*" -type f -exec sed -i 's/^    source ".*oplus.*/# & /g' {} +
           
-          # 2. البحث عن ملف الإعدادات
+          # البحث عن ملف الإعدادات
           CONF=$(find arch/arm64/configs -name "*sm8550*" | head -n 1)
           if [ -z "$CONF" ]; then CONF="arch/arm64/configs/vendor/sm8550_defconfig"; fi
           
-          # 3. تفعيل تعريفات Atheros
+          # تفعيل تعريفات Atheros
           echo "CONFIG_ATH9K_HTC=y" >> $CONF
           echo "CONFIG_ATH9K_HTC_DEBUGFS=y" >> $CONF
           echo "CONFIG_MAC80211=y" >> $CONF
           echo "CONFIG_CFG80211=y" >> $CONF
           
-          # 4. بدء البناء مع تجاهل التحذيرات التي لا تعيق العملية
+          # بدء البناء
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- $(basename $CONF)
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: Upload_Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_PJA110_Atheros_Fixed
+          name: Kernel_PJA110_Atheros
           path: out/arch/arm64/boot/Image
