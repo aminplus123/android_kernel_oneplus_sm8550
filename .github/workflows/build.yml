@@ -1,49 +1,38 @@
-name: Ultimate_Atheros_Success
+name: Ultimate_Atheros_Final_Fix
 on:
   workflow_dispatch:
 
 jobs:
-  build_and_patch:
+  inject:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Setup_Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Compile_Tool_Locally
+      - name: Install_Standard_Tool
         run: |
-          # تحميل الكود المصدري للمشروع
-          git clone https://github.com/bmax121/KernelPatch.git
-          cd KernelPatch
+          # تحميل النسخة المخصصة للسيرفر (Linux x86_64) حصراً
+          # هذه النسخة حجمها ~2MB وتعمل على معمارية السيرفر
+          curl -L "https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64" -o kpimg
           
-          # بناء الأداة من المجلد الرئيسي للمشروع (أكثر أماناً)
-          go build ./cmd/kpimg
+          chmod +x kpimg
           
-          # نقل الأداة الناتجة إلى المجلد الرئيسي
-          mv kpimg ../kpimg_final
-          cd ..
-          chmod +x kpimg_final
-          
-          # فحص الحجم والمعمارية للتأكد
-          ls -lh kpimg_final
-          file kpimg_final
+          # فحص للتأكد من المعمارية (يجب أن تظهر x86-64)
+          ls -lh kpimg
+          file kpimg
 
       - name: Patch_Kernel_Image
         run: |
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: init_boot.img not found in repository!"
+            echo "Error: init_boot.img not found!"
             exit 1
           fi
           
-          # تنفيذ عملية الحقن لتعريف Atheros
-          ./kpimg_final -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          # تنفيذ الحقن لتعريف Atheros AR9271
+          ./kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Result
         uses: actions/upload-artifact@v4
         with:
-          name: OnePlus_Ace2Pro_Atheros_Ready
+          name: OnePlus_Ace2Pro_Atheros_Final
           path: init_boot_atheros.img
