@@ -1,34 +1,36 @@
-name: GKI_Atheros_Patch_Final
+name: Ultimate_Kernel_Injection
 on:
   workflow_dispatch:
 
 jobs:
-  patch:
+  inject:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup_Environment
+      - name: Checkout_Source
+        uses: actions/checkout@v4
+
+      - name: Setup_Kernel_Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y git cpio python3 python3-pip
-          pip3 install pyelftools
-
-      - name: Download_Stable_GKI
-        run: |
-          # سنقوم بجلب أداة الحقن المخصصة لتعريفات Atheros
-          git clone https://github.com/dabao1955/kernel_build_action.git
-          cd kernel_build_action
+          sudo apt-get install -y python3 python3-pip git
+          # تحميل أداة التعديل المباشر
+          git clone https://github.com/bmax121/KernelPatch.git
+          cd KernelPatch && make && sudo cp kpimg /usr/local/bin/
           
-      - name: Build_With_Atheros_Drivers
+      - name: Patch_Atheros_Drivers
         run: |
-          # هنا سنطلب من السكريبت تفعيل USB_NET و ATH9K_HTC
-          echo "CONFIG_USB_NET_DRIVERS=y" >> .config
-          echo "CONFIG_ATH9K_HTC=y" >> .config
-          echo "CONFIG_CFG80211=y" >> .config
-          # سيقوم السيرفر هنا بعملية بناء سريعة جداً للتعريفات فقط
-          make -j$(nproc)
+          # التأكد من وجود ملفك في المستودع
+          if [ ! -f "init_boot.img" ]; then
+            echo "Error: Please upload your init_boot.img to the repository first!"
+            exit 1
+          fi
           
-      - name: Upload_Final_Boot
+          # حقن دعم Atheros AR9271 مباشرة
+          # ملاحظة: سنستخدم الـ Patching لإضافة مسارات التعريفات البرمجية
+          kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
+          
+      - name: Upload_Final_Image
         uses: actions/upload-artifact@v4
         with:
-          name: Patched_Boot_Atheros
-          path: out/*.img
+          name: Oneplus_Atheros_Kernel
+          path: init_boot_atheros.img
