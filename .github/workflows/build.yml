@@ -1,4 +1,4 @@
-name: Ultimate_Kernel_Injection
+name: Ultimate_Kernel_Injection_Fixed
 on:
   workflow_dispatch:
 
@@ -9,28 +9,27 @@ jobs:
       - name: Checkout_Source
         uses: actions/checkout@v4
 
-      - name: Setup_Kernel_Tools
+      - name: Download_Prebuilt_KernelPatch
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip git
-          # تحميل أداة التعديل المباشر
-          git clone https://github.com/bmax121/KernelPatch.git
-          cd KernelPatch && make && sudo cp kpimg /usr/local/bin/
+          # تحميل أداة التعديل المباشر (نسخة جاهزة لتجنب أخطاء Makefile)
+          wget https://github.com/bmax121/KernelPatch/releases/download/0.20.1/kpimg-v0.20.1-linux-x86_64 -O kpimg
+          chmod +x kpimg
+          sudo mv kpimg /usr/local/bin/
           
       - name: Patch_Atheros_Drivers
         run: |
           # التأكد من وجود ملفك في المستودع
           if [ ! -f "init_boot.img" ]; then
-            echo "Error: Please upload your init_boot.img to the repository first!"
+            echo "Error: init_boot.img not found! Please make sure the file is uploaded to the root directory."
             exit 1
           fi
           
-          # حقن دعم Atheros AR9271 مباشرة
-          # ملاحظة: سنستخدم الـ Patching لإضافة مسارات التعريفات البرمجية
+          # عملية الحقن المباشر لتعريف Atheros وتفعيل المكونات اللازمة
+          # سنقوم بإضافة سطر الإعدادات للكيرنال مباشرة
           kpimg -i init_boot.img -o init_boot_atheros.img --patch-config "CONFIG_ATH9K_HTC=y"
           
       - name: Upload_Final_Image
         uses: actions/upload-artifact@v4
         with:
-          name: Oneplus_Atheros_Kernel
+          name: OnePlus_Ace2Pro_Atheros
           path: init_boot_atheros.img
